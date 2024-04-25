@@ -1,1 +1,0 @@
-# Selenium_Java_getCapcha
