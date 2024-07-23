@@ -7,6 +7,9 @@ import com.thuydung.helpers.PropertiesHelper;
 import com.thuydung.reports.ExtentTestManager;
 import com.thuydung.utils.LogUtils;
 import io.qameta.allure.Step;
+import net.sourceforge.tess4j.Tesseract;
+import net.sourceforge.tess4j.TesseractException;
+import org.apache.commons.codec.binary.Base64;
 import org.openqa.selenium.*;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedCondition;
@@ -15,8 +18,12 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.Assert;
 import org.testng.asserts.SoftAssert;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.Normalizer;
@@ -1069,6 +1076,25 @@ public class WebUI {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
     }
+    public static void getCaptchaCanvas(By by) throws TesseractException, IOException {
+        // Lấy dữ liệu hình ảnh từ canvas sử dụng JavascriptExecutor
+        JavascriptExecutor js = (JavascriptExecutor) DriverManager.getDriver();
+        String imageData = (String) js.executeScript("var canvas = arguments[0]; return canvas.toDataURL('image/png').substring(21);", WebUI.getWebElement(by));
+        // Giải mã dữ liệu Base64 và chuyển đổi thành BufferedImage
+        byte[] imageBytes = Base64.decodeBase64(imageData);
+        BufferedImage img = ImageIO.read(new ByteArrayInputStream(imageBytes));
+
+        // Sử dụng Tess4J để nhận dạng văn bản từ hình ảnh
+        Tesseract tesseract = new Tesseract();
+        tesseract.setDatapath("C:\\Program Files\\Tesseract-OCR\\tessdata"); // Đường dẫn đến thư mục tessdata của bạn
+        tesseract.setLanguage("eng");
+        tesseract.setPageSegMode(1);
+        tesseract.setOcrEngineMode(1);
+        String text = tesseract.doOCR(img).trim();
+
+        System.out.println("Text from CAPTCHA: " + text);
+    }
+
 
 
 }

@@ -1,147 +1,82 @@
 package com.thuydung.pages;
 
-import com.thuydung.drivers.DriverManager;
 import com.thuydung.helpers.PropertiesHelper;
+import com.thuydung.helpers.SystemHelper;
 import com.thuydung.keywords.WebUI;
-import org.apache.commons.lang3.RandomStringUtils;
+import net.sourceforge.tess4j.Tesseract;
+import net.sourceforge.tess4j.TesseractException;
+import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.OutputType;
 
+import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+public class RegisterPage extends CommonPage{
+    public static By imgCanvasCode = By.xpath("//canvas[@id='captcha']");
+    public static By buttonRefreshCaptcha = By.xpath("//a[@class='btn btn-icon']");
+    public void getTextFromCanvas2() throws TesseractException, IOException {
+        WebUI.openURL(PropertiesHelper.getValue("URL"));
+        WebUI.scrollToElementToBottom(imgCanvasCode);
+        WebUI.sleep(2);
+//        WebUI.getCaptchaCanvas(imgCanvasCode);
+        getTextFromCaptcha();
+    }
+    public void getTextFromCaptcha() {
+        File f = WebUI.getWebElement(imgCanvasCode).getScreenshotAs(OutputType.FILE);
+        String filePath = SystemHelper.getCurrentDir() + "src\\test\\resources\\CaptchaImages\\Captcha" + ".png";
 
-public class RegisterPage extends CommonPage {
-    public By titleRegisterPage = By.xpath("//h1[normalize-space()='Create an account.']");
-    public By inputFullName = By.xpath("//input[@placeholder='Full Name']");
-    public By inputEmail = By.xpath("//input[@placeholder='Email']");
-    public By inputPassword = By.xpath("//input[@placeholder='Password']");
-    public By inputConfirmPassword = By.xpath("//input[@placeholder='Confirm Password']");
-    public By checkboxAgreeCondition = By.xpath("//span[contains(text(),'By signing up you agree to our terms and condition')]/parent::label");
-    public By buttonRegister = By.xpath("//button[normalize-space()='Create Account']");
-    public By messageRequiredPassword = By.xpath("//strong[contains(text(),'The password field is required.')]");
-    public By messageRequiredFullName = By.xpath("//strong[normalize-space()='The name field is required.']");
-    public By messageRequiredPasswordCharacter = By.xpath("//strong[normalize-space()='The password must be at least 6 characters.']");
-    public By messageRequiredConfirmPasswordMatch = By.xpath("//strong[normalize-space()='The password confirmation does not match.']");
-    public By messageNotiRegister = By.xpath("//span[@data-notify='message']");
-    private By errorMessage = By.xpath("//h1[normalize-space()='Something went wrong!']");
-
-    public void registerAccount(String fullname, String email, String password, String confirm_password) {
-        WebUI.openURL(PropertiesHelper.getValue("URL_REGISTER"));
-        if (WebUI.getWebElement(LoginPage.closeAdvertisementPopup).isDisplayed()) {
-            WebUI.clickElement(LoginPage.closeAdvertisementPopup);
+        File theDir = new File("src\\test\\resources\\CaptchaImages");
+        if (!theDir.exists()) {
+            theDir.mkdirs();
         }
-        if (WebUI.getWebElement(LoginPage.buttonOkCookies).isDisplayed()) {
-            WebUI.clickElement(LoginPage.buttonOkCookies);
+
+        try {
+            FileUtils.copyFile(f, new File(filePath));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        WebUI.waitForPageLoaded();
-        WebUI.sleep(2);
-        WebUI.setText(inputFullName, fullname);
-        WebUI.setText(inputEmail, email);
-        WebUI.setText(inputPassword, password);
-        WebUI.setText(inputConfirmPassword, confirm_password);
-        WebUI.clickElement(checkboxAgreeCondition);
-        WebUI.sleep(2);
-        WebUI.clickElement(buttonRegister);
-        //WebUI.waitForElementInvisible(HomePage.messageRegisterSuccess);
-    }
 
-    public void registerSuccessCustomerAccount(String fullname, String email, String password, String confirm_password) {
-        Date now = new Date();
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        String timestamp = formatter.format(now);
-        email = email + timestamp + RandomStringUtils.randomAlphabetic(3).toUpperCase() + "@gmail.com";
-        registerAccount(fullname, email, password, confirm_password);
-        WebUI.verifyAssertTrueIsDisplayed(By.xpath("//span[@data-notify = 'message']"), "Khong xuat hien thong bao dang ky thanh cong.");
-        WebUI.verifyAssertTrueEqual(By.xpath("//span[@data-notify = 'message']"), "Registration successful.", "Thong bao dang ky thanh cong khong dung.");
-        verifyNewCustomerAccount(fullname, email);
-        WebUI.sleep(2);
-    }
+        File image = new File(filePath);
+        Tesseract tesseract = new Tesseract();
+        tesseract.setDatapath("C:\\Program Files\\Tesseract-OCR\\tessdata");
+        tesseract.setLanguage("eng");
+        tesseract.setPageSegMode(1);
+        tesseract.setOcrEngineMode(1);
+        String result;
+        try {
+            result = tesseract.doOCR(image);
+            result = result.replace(" ", "");
+            System.out.println("TEXT EXTRACT: " + result);
+        } catch (TesseractException e) {
+            throw new RuntimeException(e);
+        }
 
-    public void registerCustomerAccount(String fullname, String email, String password, String confirm_password) {
-        Date now = new Date();
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        String timestamp = formatter.format(now);
-        email = email + timestamp + RandomStringUtils.randomAlphabetic(3).toUpperCase() + "@gmail.com";
-//        email = email + RandomStringUtils.randomAlphabetic(8).toUpperCase() + "@gmail.com";
-        registerAccount(fullname, email, password, confirm_password);
-        verifyNewCustomerAccount(fullname, email);
-        WebUI.sleep(2);
-    }
+        if (result.isEmpty() || result.isBlank()) {
+            for (int i = 1; i <= 5; i++) {
+                try {
+                    WebUI.clickElement(buttonRefreshCaptcha);
+                    WebUI.waitForPageLoaded();
+                    WebUI.sleep(1);
+                    File f2 = WebUI.getWebElement(imgCanvasCode).getScreenshotAs(OutputType.FILE);
 
-    public void verifyNewCustomerAccount(String fullname, String email) {
-        getHomePage().openMyPanel();
-        WebUI.verifyAssertTrueEqual(DashboardPage.fullNameAccount, fullname, "Tên tài khoản không đúng.");
-        WebUI.verifyAssertTrueEqual(DashboardPage.emailAccount, email, "Email tài khoản không đúng.");
-    }
+                    SimpleDateFormat dateFormat2 = new SimpleDateFormat("dd-MM-yyyy HH-mm-ss");
+                    String filePath2 = SystemHelper.getCurrentDir() + "src\\test\\resources\\CaptchaImages\\Captcha" + ".png";
+                    FileUtils.copyFile(f2, new File(filePath2));
 
-    public void registerFailWithoutFullname(String fullname, String email, String password, String confirm_password) {
-        registerAccount(fullname, email, password, confirm_password);
-        WebUI.verifyAssertTrueIsDisplayed(messageRequiredFullName, "Khong xuat hien thong bao bat buoc nhap ten.");
-        WebUI.verifyAssertTrueEqual(messageRequiredFullName, "The name field is required.", "Thong bao bat buoc nhap ten khong dung.");
-        WebUI.sleep(2);
-    }
-
-    public void registerFailWithoutEmail(String fullname, String email, String password, String confirm_password) {
-        registerAccount(fullname, email, password, confirm_password);
-        WebUI.verifyAssertTrueIsDisplayed(errorMessage, "He thong khong bao loi khi email de trong.");
-        WebUI.sleep(2);
-    }
-
-    public void registerFailWithExistEmail(String fullname, String email, String password, String confirm_password) {
-        registerAccount(fullname, email, password, confirm_password);
-        WebUI.verifyAssertTrueIsDisplayed(messageNotiRegister, "Khong xuat hien thong bao email da ton tai.");
-        WebUI.verifyAssertTrueEqual(messageNotiRegister, "Email or Phone already exists.", "Thong bao email da ton tai khong dung.");
-        WebUI.sleep(2);
-    }
-
-    public void registerFailWithInvalidEmail(String fullname, String email, String password, String confirm_password) {
-        registerAccount(fullname, email, password, confirm_password);
-        WebUI.verifyAssertTrueIsDisplayed(titleRegisterPage, "Email khong dung dinh dang.");
-        WebUI.sleep(2);
-    }
-
-    public void registerFailWithoutPassword(String fullname, String email, String password, String confirm_password) {
-        registerAccount(fullname, email, password, confirm_password);
-        WebUI.verifyAssertTrueIsDisplayed(messageRequiredPassword, "Khong xuat hien thong bao bat buoc nhap mat khau.");
-        WebUI.verifyAssertTrueEqual(messageRequiredPassword, "The password field is required.", "Thong bao bat buoc nhap mat khau khong dung.");
-        WebUI.sleep(2);
-    }
-
-    public void registerFailCustomerWithPasswordLessCharacter(String fullname, String email, String password, String confirm_password) {
-        registerAccount(fullname, email, password, confirm_password);
-        WebUI.verifyAssertTrueIsDisplayed(messageRequiredPasswordCharacter, "Khong xuat hien thong bao mat khau phai co it nhat 6 ky tu.");
-        WebUI.verifyAssertTrueEqual(messageRequiredPasswordCharacter, "The password must be at least 6 characters.", "Thong bao mat khau phai co it nhat 6 ky tu khong dung.");
-        WebUI.sleep(2);
-    }
-
-    public void registerFailCustomerWithPasswordNotMatch(String fullname, String email, String password, String confirm_password) {
-        registerAccount(fullname, email, password, confirm_password);
-        WebUI.verifyAssertTrueIsDisplayed(messageRequiredConfirmPasswordMatch, "Khong xuat hien thong bao mat khau khong trung khop.");
-        WebUI.verifyAssertTrueEqual(messageRequiredConfirmPasswordMatch, "The password confirmation does not match.", "Thong bao mat khau khong trung khop khong dung.");
-        WebUI.sleep(2);
-    }
-
-    public void registerFailCustomerWithoutAcceptTerm(String fullname, String email, String password, String confirm_password) {
-        Date now = new Date();
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        String timestamp = formatter.format(now);
-        email = email + timestamp + RandomStringUtils.randomAlphabetic(3).toUpperCase() + "@gmail.com";
-//        email = email + RandomStringUtils.randomAlphabetic(8).toUpperCase() + "@gmail.com";
-        WebUI.openURL(PropertiesHelper.getValue("URL_REGISTER"));
-        WebUI.clickElement(LoginPage.closeAdvertisementPopup);
-        WebUI.clickElement(LoginPage.buttonOkCookies);
-        WebUI.waitForPageLoaded();
-        WebUI.sleep(2);
-        WebUI.setText(inputFullName, fullname);
-        WebUI.setText(inputEmail, email);
-        WebUI.setText(inputPassword, password);
-        WebUI.setText(inputConfirmPassword, confirm_password);
-        WebUI.clickElement(buttonRegister);
-        WebUI.waitForPageLoaded();
-        WebUI.sleep(2);
-        WebUI.verifyAssertTrueIsDisplayed(titleRegisterPage, "Cho phep dang ky ma chua dong y dieu khoan.");
-        WebUI.sleep(2);
+                    result = tesseract.doOCR(image);
+                    result = result.replace(" ", "");
+                    System.out.println("TEXT EXTRACT: " + result);
+                    if (!result.isEmpty() && !result.isBlank()) {
+                        break;
+                    }
+                } catch (TesseractException | IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
     }
 
 
